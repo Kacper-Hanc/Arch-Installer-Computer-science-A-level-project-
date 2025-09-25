@@ -1,4 +1,4 @@
-# TUI Control explanation
+    # TUI Control explanation
 whiptail --title 'TUI Controls' --msgbox \
     'To manuver the Terminal User Interface the controls are shown bellow:\n
         1.<^> arrow keys to move across the options
@@ -8,11 +8,11 @@ whiptail --title 'TUI Controls' --msgbox \
 Thats all for the controls to manuver the UI to continue to the Networking section press enter'  20 60 --nocancel
 # Set keymap
 
-###localectl list-keymaps >> tmp.txt
-###list=$(localectl list-keymaps | awk '{print $1" ."}')
-###km=$(whiptail --title "Keymaps" --menu "text" 30 65 20 $list 3>&1 1>&2 2>&3)
-###loadkeys $km 
-
+localectl list-keymaps >> tmp.txt
+list=$(localectl list-keymaps | awk '{print $1" ."}')
+km=$(whiptail --title "Keymaps" --menu "text" 30 65 20 $list 3>&1 1>&2 2>&3)
+loadkeys $km 
+echo KEYMAP=$km >> /etc/vconsole 
 # Networking Setup
 
 internet_check(){
