@@ -1,13 +1,20 @@
 drives="$(lsblk -dn -o NAME,SIZE)"
-
+Advanced="False"
 for i in {0..3}; do
     messages=("You are going to partition your drive now, \nThis means that you are going to split your drive into sections"
     "These sections are where your OS is going to be installed, We do this to make sure each part is installed in the correct place"
     "you are now going to select wheather you are going to go with the default partition scheme(Simple) or create a custom partition scheme(Advanced)\n \nyou will now select the drive that the OS will be installed on"
     "             THIS IS IMPORTANT \n\nThis will wipe the drive you select in the next prompt")
-
-    whiptail --title "IMPORTANT Instructions" --msgbox \
-        "${messages[$i]}" 18 50
+    message=${messages[$i]}
+    for i in {1..4}; do
+        per=$(($i*100/4))
+        sleep 0.1
+        export TERM=linux
+        echo $per | whiptail --title "IMPORTANT Instructions" --gauge \
+            "$message" 18 50 $per
+        sleep 2
+        export TERM=linux
+    done
 done
 
 
@@ -21,9 +28,10 @@ if !(whiptail --title "Simple/Advanced" --yesno \
         \nThere will be a selection like this in all applicable sections" \
         --yes-button "Simple" --no-button "Advanced" 20 50); then
     sudo cfdisk /dev/$Drive
+    Advanced="True"
 else
     # Automatically wipes drive and partitions it
-
+    Advanced="False"
     sfdisk "/dev/$Drive" <<EOF
     size=500M, type=83
     size=4G,   type=83
@@ -31,3 +39,4 @@ else
 EOF
 
 fi
+./Format+Mount.sh $Drive $Advanced

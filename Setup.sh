@@ -6,13 +6,20 @@ whiptail --title 'TUI Controls' --msgbox \
         3.The enter/return key is used to confirm the 
         selected option\n
 Thats all for the controls to manuver the UI to continue to the Networking section press enter'  20 60 --nocancel
+for i in {1..4}; do
+    per=$(($i*100/4))
+    sleep 0.1
+    export TERM=linux
+    echo $per | whiptail --title "IMPORTANT MESSAGE" --gauge \
+        "Please remember that you cannot return to previous interfaces and after you select an option the action will be complete. If you want to cancel you need to press CTRL+C before this message disapears do not cancel after this you device will lose it's data" \
+        18 50 $per
+    sleep 2
+    export TERM=linux
+done
 # Set keymap
-
-localectl list-keymaps >> tmp.txt
 list=$(localectl list-keymaps | awk '{print $1" ."}')
-km=$(whiptail --title "Keymaps" --menu "text" 30 65 20 $list 3>&1 1>&2 2>&3)
-loadkeys $km 
-echo KEYMAP=$km >> /etc/vconsole 
+km=$(whiptail --title "Keymaps" --nocancel --menu "" 30 65 20 $list 3>&1 1>&2 2>&3)
+loadkeys $km
 # Networking Setup
 
 internet_check(){
@@ -35,3 +42,4 @@ while true; do
         break
     fi
 done
+./Partition.sh
