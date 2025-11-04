@@ -1,4 +1,4 @@
-    # TUI Control explanation
+# TUI Control explanation
 whiptail --title 'TUI Controls' --msgbox \
     'To manuver the Terminal User Interface the controls are shown bellow:\n
         1.<^> arrow keys to move across the options
