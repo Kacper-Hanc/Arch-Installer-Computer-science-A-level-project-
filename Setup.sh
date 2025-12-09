@@ -42,4 +42,4 @@ while true; do
         break
     fi
 done
-./Partition.sh
+./Partition.sh $km

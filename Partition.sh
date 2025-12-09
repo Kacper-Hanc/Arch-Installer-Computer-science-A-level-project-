@@ -39,4 +39,4 @@ else
 EOF
 
 fi
-./Format+Mount.sh $Drive $Advanced
+./Format+Mount.sh $Drive $Advanced $1

@@ -114,3 +114,4 @@ else #SIMPLE FORMAT+MOUNT
     swapon /dev/$drive"2"
 fi
 
+./Install.sh $drive $3
