@@ -1,19 +1,20 @@
+#include <stdarg.h>
 #include <stdio.h>
 
-// non-void return type
-// function to calculate sum
-int SUM(int a, int b)
-{
-    int s1 =1;
-    
-    return s1;
-}
+#define MAKE_MSG(buf, fmt, ...) \
+    snprintf(buf, sizeof(buf), fmt, __VA_ARGS__)
 
-int main()
-{
-    int num1 = 10;
-    int num2 = 10;
-    int sum_of = SUM(num1, num2);
-    printf("The sum is %d", sum_of);
+
+void func1(char *var1, char *var2) {
+    printf("%s\n",var1);
+    printf("%s",var2);
+}
+int main(void) {
+    char var1[50] = "Title";
+    char message[50];
+    MAKE_MSG(message, "this is the title %s", var1);
+    MAKE_MSG(var1,"[ %s ]",var1);
+    func1(var1, message);
+    printf("%s\n", var1);
     return 0;
 }
