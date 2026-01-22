@@ -1,20 +1,32 @@
-#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+void array_to_string(char **array,char *str,int lim){
+    char *p = str;
+    for (int i=0;i<lim;i++){
+        size_t len = strlen(array[i]);
+        if (len > 0 && array[i][len - 1] == '\n') {
+            len--;
+        }
+        memcpy(p, array[i], len);
+        p += len;
 
-#define MAKE_MSG(buf, fmt, ...) \
-    snprintf(buf, sizeof(buf), fmt, __VA_ARGS__)
-
-
-void func1(char *var1, char *var2) {
-    printf("%s\n",var1);
-    printf("%s",var2);
+        if (i < lim - 1) {
+            *p++ = '-';
+        }
+    }
+    *p = '\0';
 }
-int main(void) {
-    char var1[50] = "Title";
-    char message[50];
-    MAKE_MSG(message, "this is the title %s", var1);
-    MAKE_MSG(var1,"[ %s ]",var1);
-    func1(var1, message);
-    printf("%s\n", var1);
+int main(void)
+{
+    char *arr[3] = {
+        "apple",
+        "banana",
+        "cherry"
+    };
+    char str[50];
+    array_to_string(arr,str,3);
+    printf(str);
+   
     return 0;
 }

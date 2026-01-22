@@ -196,7 +196,8 @@ void inputbox(int h,int w,char *title,char *message,char out[50])
     wgetnstr(input,out,w-8);
     noecho();
 }
-void menu(int h,int w,char *title,char *options,char out[50]){
+void menu(int h,int w,char *title,char *options,char out[50])
+{
     int x,y,c;
     c = 0;
     x = (COLS-w)/2;
@@ -220,13 +221,11 @@ void menu(int h,int w,char *title,char *options,char out[50]){
         token = strtok(NULL, "-");
         c++;
     }
-
     keypad(win,true);
     int kp;
     int highlight=0;
 
     while (1){
-        // Prints the generated array on multiple lines
         for (int i = 0; i < c; i++) {
             if (i==highlight){
                 wattron(win,A_REVERSE);
@@ -234,26 +233,136 @@ void menu(int h,int w,char *title,char *options,char out[50]){
                 wattroff(win,A_REVERSE);
             }
             else{
+                move(0,0);
                 mvwprintw(win, i + 2,1,"%s", array[i]);
             }
         }
-    refresh();
-    kp = wgetch(win);
-    if (kp == KEY_DOWN && highlight<c-1){
-        highlight++;
-    }
-    else if (kp == KEY_UP && highlight>0){
-        highlight--;
-    }
-    else if (kp == 10){
-            strncpy(out, array[highlight], 50);
-            out[50] = '\0';
-            return;
-    }
+        refresh();
+        kp = wgetch(win);
+        if (kp == KEY_DOWN && highlight<c-1){
+            highlight++;
+        }
+        else if (kp == KEY_UP && highlight>0){
+            highlight--;
+        }
+        else if (kp == 10){
+                strncpy(out, array[highlight], 50);
+                out[50] = '\0';
+                return;
+        }
     }
 }
+void configc(char *location,char **result)
+{
+    FILE *fptr;
+    
+    strcat(location,"config");
+    fptr = fopen(location,"w");
+    if (fptr == NULL){
+        return;
+    }
+    fclose(fptr);
+}
+int configr(char *location,char **result)
+{
+    FILE *fptr;
+    char line[100];
+    int d=0;
+    strcat(location,"config.conf");
+
+    fptr = fopen(location,"r");
+    if(fptr == NULL) {
+        clear();
+        mvprintw(LINES/2,(COLS-25)/2,"Not able to open the file.");
+        getch();
+        return 0;
+    }
+    else;
+
+    while(fgets(line, 100, fptr)){
+        result[d]=strdup(line);
+        d++;
+    }
+    fclose(fptr);
+    return d;
+}
+
+int Drivesel(char **drive)
+{
+    FILE *fptr;
+    char line[100];
+    int i=0;
+
+    fptr = popen("lsblk -dn -o NAME,SIZE","r");
+    if(fptr == NULL) {
+        clear();
+        mvprintw(LINES/2,(COLS-25)/2,"Not able to open the file.");
+        getch();
+        return 0;
+    }
+    else;
+
+    while(fgets(line, 100, fptr)){
+        drive[i]=strdup(line);
+        i++;
+    }
+
+
+    pclose(fptr);
+    return i;
+}
+void array_to_string(char **array,char *str,int lim)
+{
+    char *p = str;
+    for (int i=0;i<lim;i++){
+        size_t len = strlen(array[i]);
+        if (len > 0 && array[i][len - 1] == '\n') {
+            len--;
+        }
+        memcpy(p, array[i], len);
+        p += len;
+
+        if (i < lim - 1) {
+            *p++ = '-';
+        }
+    }
+    *p = '\0';
+}
+
+void partsel(char **drive,)
+{
+
+}
+
+
+
+/*
+    The Current List of needed variables:
+    - Drives
+    - Partitioning Scheme
+    - 
+*/
 
 int main(void)
 {
-    return 0;
+    char *result[100];
+    char location[20]="Configs/";
+    char message[100] ={0};
+    
+    char out[50];
+    initscr();
+    int lim = Drivesel(result);
+    if (!lim){
+        endwin();
+        return 1;
+    }
+    char *ts[5]={"50","42"};
+    mvprintw(LINES/2,(COLS-11)/2,"FILE EXISTS");
+    array_to_string(ts,message,2);
+    mvprintw(0,0,message);
+    getch();
+    clear();
+    menu(10,25,"[ DRIVE SELECTION ]",message,out);
+    endwin();
+    return 1;
 }
