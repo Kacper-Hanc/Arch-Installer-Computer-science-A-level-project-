@@ -416,10 +416,11 @@ int main(void)
             index=Commands(result,1);
             array_to_string(result,message,index);
             strcat(message,"~[ EXIT ]");
-            menu(6,29,"[ Drive Selection ]",message);
-            // Partitioning selection
-            while (index!=3){
-                index=menu(8,95,"[ Partitioning Scheme ]","Simple - Will remove all the data on the drive and install Arch with a basic partition~Advanced - You will need to decide on the size of the partitions your self~Custom command - Add a command to be run at the end of the partitioning section~[ EXIT ]");
+            if(!(menu(6,29,"[ Drive Selection ]",message))){
+                // Partitioning selection
+                while (index!=3){
+                    index=menu(8,95,"[ Partitioning Scheme ]","Simple - Will remove all the data on the drive and install Arch with a basic partition~Advanced - You will need to decide on the size of the partitions your self~Custom command - Add a command to be run at the end of the partitioning section~[ EXIT ]");
+                }   
             }
         }
     }
