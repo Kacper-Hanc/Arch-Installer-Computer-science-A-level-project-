@@ -1,14 +1,6 @@
-#!/bin/bash
-
-funciton() {
-    echo "testing"
-}
-
-while true; do
-    read -r var
-    case "$var" in
-        test)
-            funciton
-            ;;
-    esac
-done
+Drive=$1
+sfdisk "/dev/$Drive" <<EOF
+size=500M, type=83
+size=4G,   type=83
+type=83
+EOF

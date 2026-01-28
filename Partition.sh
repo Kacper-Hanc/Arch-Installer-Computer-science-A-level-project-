@@ -1,5 +1,4 @@
 drives=$1
-Advanced=$2
 if [ "$2"==0 ]
 then
     sfdisk "/dev/$Drive" <<EOF

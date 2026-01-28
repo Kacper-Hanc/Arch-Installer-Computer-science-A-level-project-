@@ -8,7 +8,7 @@
 int CreateArray(char **array,char *message,int w)
 {
     int c =0;
-    char buffer[200];
+    char buffer[500];
     snprintf(buffer, sizeof(buffer), "%s", message);
 
     char *token = strtok(buffer, "~");
@@ -79,17 +79,7 @@ void timed_msgbox(int h,int w,char *title, char *message,int t)
 
 
     mvwprintw(win,0,(w-strlen(title))/2,title);
-    // Create a buffer for the string literal to be modified
-    char buffer[200];
-    strncpy(buffer, message, sizeof(buffer));
-    buffer[sizeof(buffer)-1] = '\0';
-    // Splits the string int an array The delimitter/ splitting point being at each '~' character
-    char* token = strtok(buffer, "~");
-    while (token != nullptr){
-        strcpy(array[c],token);
-        token = strtok(nullptr, "~");
-        c++;
-    }
+
     // Prints the generated array on multiple lines
     for (int i = 0; i < c; i++) {
     mvwprintw(win, i + 2,(w - strlen(array[i])) / 2,"%s", array[i]);
@@ -113,7 +103,7 @@ void timed_msgbox(int h,int w,char *title, char *message,int t)
     clear();
     refresh();
 }
-bool yesno(int h,int w,char *title,char *message)
+bool yesno(int h,int w,char *title,char *message,char *yes,char *no)
 {
     int x,y,d;
     d = 0;
@@ -136,9 +126,9 @@ bool yesno(int h,int w,char *title,char *message)
 
     keypad(win,true);
 
-    mvwprintw(win,h-2,w-(8+strlen("NO")),"NO");
+    mvwprintw(win,h-2,w-(8+strlen(no)),no);
     wattron(win,A_REVERSE);
-    mvwprintw(win,h-2,5+strlen("YES"),"YES");
+    mvwprintw(win,h-2,5+strlen(yes),yes);
     wattroff(win,A_REVERSE);
 
     bool yn = true;
@@ -146,16 +136,16 @@ bool yesno(int h,int w,char *title,char *message)
     while (d!=10){
         d = wgetch(win);
         if (d == KEY_RIGHT){
-            mvwprintw(win,h-2,5+strlen("YES"),"YES"); 
+            mvwprintw(win,h-2,5+strlen(yes),yes); 
             wattron(win,A_REVERSE);
-            mvwprintw(win,h-2,w-(8+strlen("NO")),"NO");
+            mvwprintw(win,h-2,w-(8+strlen(no)),no);
             wattroff(win,A_REVERSE);
             yn=false;
         }
         else if (d == KEY_LEFT){
-            mvwprintw(win,h-2,w-(8+strlen("NO")),"NO");
+            mvwprintw(win,h-2,w-(8+strlen(no)),no);
             wattron(win,A_REVERSE);
-            mvwprintw(win,h-2,5+strlen("YES"),"YES"); 
+            mvwprintw(win,h-2,5+strlen(yes),yes); 
             wattroff(win,A_REVERSE);
             yn=true;
         }
@@ -166,7 +156,7 @@ bool yesno(int h,int w,char *title,char *message)
     wrefresh(win);
     return yn;
 }
-void inputbox(int h,int w,char *title,char *message,char out[50])
+void inputbox(int h,int w,char *title,char *message,char out[200])
 {
     int x,y;
     x = (COLS-w)/2;
@@ -186,7 +176,7 @@ void inputbox(int h,int w,char *title,char *message,char out[50])
     mvwprintw(win,0,(w-strlen(title))/2,title);
     // Prints the generated array on multiple lines
     for (int i = 0; i < c; i++) {
-    mvwprintw(win, i + 2,(w - strlen(array[i])) / 2,"%s", array[i]);
+        mvwprintw(win, i + 2,(w - strlen(array[i])) / 2,"%s", array[i]);
     } 
     // move to the input box and enable user input display
     wmove(input,1,1);
@@ -196,8 +186,8 @@ void inputbox(int h,int w,char *title,char *message,char out[50])
     wrefresh(win);
     wrefresh(input);
     // gets input from the user limiting to the size of the input box
-    // disables the display of user input and returns the string
     wgetnstr(input,out,w-8);
+    // disables the display of user input and returns the string
     noecho();
 }
 int menu(int h, int w, char *title, char *options)
@@ -391,10 +381,22 @@ int fileread(char *location,char *name,char **result)
 
 int main(void)
 {
+    // necesarry variables
+    char *keymap="uk";
+    char *drive;
+    char partitions[3][200]={"500M","4G",""};
+    char format[3][200]={"fat32","swap","ext4"};
+    char mounting[2][200]={"/mnt/boot/efi","/mnt"};
+    char Cust_commands[3][200];
+
+    // reusable variables
+    char buff[250]="Your input is: ";
+    char command[1000];
     char *result[300];
     char *message = calloc(1, 20000);
     int index=0;
     int selection=0;
+
     initscr();
     noecho();
     raw();
@@ -406,22 +408,65 @@ int main(void)
         getch();
         system("nmtui");
     }
+    // Set the keymap
+    index=Commands(result,2);
+    array_to_string(result,message,index);
+    index=menu(40,60,"[ Keymap ]",message);
+    strcpy(command,"loadkeys ");
+    strcat(command,result[index]);
+    system(command);
+
+
     clear();
     refresh();
     // Main Menu
-    while(selection!=4){
-        selection=menu(15,60,"[ Arch Installation ]","Drives selection and Partitioning~Formatting~Mounting~Additional Applications to install~[ EXIT ]");
+    while(selection!=6){
+        selection=menu(15,60,"[ Arch Installation ]","Drives selection and Partitioning~Formatting(For Advanced Users)~Mounting(For Advanced Users)~Additional Applications to install~Configurations~Run Program~[ EXIT ]");
         if (selection==0){
             // Drive selection
             index=Commands(result,1);
             array_to_string(result,message,index);
             strcat(message,"~[ EXIT ]");
-            if(!(menu(6,29,"[ Drive Selection ]",message))){
+            selection=menu(6,29,"[ Drive Selection ]",message);
+            if(!(selection==index)){
                 // Partitioning selection
-                while (index!=3){
-                    index=menu(8,95,"[ Partitioning Scheme ]","Simple - Will remove all the data on the drive and install Arch with a basic partition~Advanced - You will need to decide on the size of the partitions your self~Custom command - Add a command to be run at the end of the partitioning section~[ EXIT ]");
-                }   
+                drive=result[selection];
+                index=menu(8,95,"[ Partitioning Scheme ]","Simple - Will remove all the data on the drive and install Arch with a basic partition~Advanced - You will need to decide on the size of the partitions your self~Custom command - Add a command to be run at the end of the partitioning section~[ EXIT ]");
+                
+                if (index==1){
+                    timed_msgbox(12,72,"[ INFORMATION ]","You have decided to go to the advanced option~You will now create 3 partitions These partitions will be as follows:~boot,swap and root~These partitions are necesary to the function of your computer.",3);
+                    clear();
+                    if((yesno(8,85,"[ Partition Size ]","You are now deciding the size of the partition you are creating~This partition will be the the [boot] parition so it is suggested to select M~The M and G stand for Megabytes and Gigabytes.","[ M ]","[ G ]"))){
+                        inputbox(11,50,"[ Partition Size ]","You have selected Megabytes~Please input the size of the [boot] partition~make sure you only input numbers~when the program runs it will check the inputs~and will reset if you don't input correctly",partitions[0]);
+                        strcat(partitions[0],"M ");
+                    }
+                    else{
+                        inputbox(11,50,"[ Partition Size ]","You have selected Gigabytes~Please input the size of the [boot] partition~make sure you only input numbers~when the program runs it will check the inputs~and will reset if you don't input correctly",partitions[0]);
+                        strcat(partitions[0],"G ");
+                    }
+                    clear();
+
+                    if((yesno(8,85,"[ Partition Size ]","You are now deciding the size of the partition you are creating~This partition will be the the mount parition so it is suggested to select M~The M and G stand for Megabytes and Gigabytes.","[ M ]","[ G ]"))){
+                        inputbox(11,50,"[ Partition Size ]","You have selected Megabytes~Please input the size of the mount partition~make sure you only input numbers~when the program runs it will check the inputs~and will reset if you don't input correctly",partitions[0]);
+                        strcat(partitions[1],"M ");
+                    }
+                    else{
+                        inputbox(11,50,"[ Partition Size ]","You have selected Gigabytes~Please input the size of the mount partition~make sure you only input numbers~when the program runs it will check the inputs~and will reset if you don't input correctly",partitions[0]);
+                        strcat(partitions[1],"G ");
+                    }
+                    clear();
+
+                    inputbox(13,55,"[ Partition Size ]","Please input the size of the root partition~This will be in Gigabytes~make sure you only input numbers~when the program runs it will check the inputs~and will reset if you don't input correctly~IF YOU WANT TO USE THE WHOLE DRIVE~FOR THE INSTALL LEAVE THE TEXT BOX EMPTY",partitions[0]);
+                    strcat(partitions[2],"G ");
+                }
+                else if (index==2){
+                    inputbox(10,55,"[ Custom Command ]","Please enter the linux command that is to~be run after the partitioning section",Cust_commands[0]);
+                }
             }
+        }
+        else if (selection==2){
+            index=menu(8,50,"[ Formatting ]","Simple - will make the partitions F32 and ext4 for boot and root respectivly~Advanced");
+            
         }
     }
     endwin();
