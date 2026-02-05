@@ -9,7 +9,8 @@
 #include <errno.h>
 
 #define MAX_STR 200
-
+#define AVG_Width 70
+#define AVG_Height 10
 /*
     Define all my variables into Config
 */
@@ -56,47 +57,96 @@ int CreateArray(char **array,char *message,int w)
     }
     return c;
 }
-int Commands(char **result, int km)
+int Open_Dir(char **result, const char *location)
 {
-    FILE *fptr;
-    char line[100];
+    DIR *dir = opendir(location);
+    struct dirent *ent;
+    if (!dir)
+        return 0;
+    size_t i = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+            continue;
+        i++;
+    }
+
+    rewinddir(dir);
+
+    // allocate memory dynamically
+    *result = malloc(i * sizeof(char *));
+    if (!*result) {
+        closedir(dir);
+        return 0;
+    }
+    i=0;
+    //  pass through the output to gather all the name
+    while ((ent = readdir(dir)) != NULL) {
+        if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+            continue;
+        result[i++] = strdup(ent->d_name);
+    }
+
+    closedir(dir);
+    // Sort the result into a alphabetical list
+    int c,j;
+    char s[100];
+    for(c=0;c<i;c++){
+        for(j=c+1;j<i;j++){
+            if(strcmp(result[c],result[j])>0){
+                strcpy(s,result[c]);
+                strcpy(result[c],result[j]);
+                strcpy(result[j],s);
+            }
+        }
+    }
+    // return the index +1 so 0 is that the file is empty
+    return i;
+}
+
+int Commands(char **result, int km, char *location)
+{
+    FILE *fptr = NULL;
+    char buff[MAX_STR]="";
+    char line[20000];
     int i = 0;
 
     if (km == 1)
         fptr = popen("lsblk -dn -o NAME,SIZE", "r");
     else if (km == 2)
         fptr = popen("localectl list-keymaps", "r");
-    else if(km==3)
-        fptr = popen("ls Configs/","r");
-    if (!fptr)
-        return 0;
-
-    while (fgets(line, sizeof(line), fptr)) {
+    else if (km == 3)
+        fptr = popen("awk 'NR>18 { s=$1; for(j=2;j<=NF;j++) s=s\".\"$j; print NR-18, s}' /etc/locale.gen","r");
+    
+    if (!fptr) return 0;
+    while (fgets(line, sizeof(line), fptr) && i < 500) {
         line[strcspn(line, "\n")] = '\0';
-        result[i] = strdup(line);
-        i++;
+        result[i++] = strdup(line);
     }
 
     pclose(fptr);
     return i;
 }
-void array_to_string(char **array,char *str,int lim)
+
+void array_to_string(char **array, char *str, int lim)
 {
     char *p = str;
-    for (int i=0;i<lim;i++){
+
+    for (int i = 0; i < lim; i++) {
         size_t len = strlen(array[i]);
-        if (len > 0 && array[i][len - 1] == '\n') {
+
+        if (len > 0 && array[i][len - 1] == '\n')
             len--;
-        }
+
         memcpy(p, array[i], len);
         p += len;
 
-        if (i < lim - 1) {
+        if (i < lim - 1)
             *p++ = '~';
-        }
     }
+
     *p = '\0';
 }
+
 void configc(char *location, Config *cfg)
 {
     FILE *fptr;
@@ -371,13 +421,13 @@ int menu(int h, int w, char *title, char *options)
     wrefresh(win);
 
     /* Parse options into array  */
-    char buffer[2500];
+    char buffer[20000];
     snprintf(buffer, sizeof(buffer), "%s", options);
 
-    char array[300][300];   // supports up to 300 items
+    char array[500][300];   // supports up to 300 items
     char *token = strtok(buffer, "~");
 
-    while (token && c < 300) {
+    while (token && c < 500) {
         strncpy(array[c], token, 300);
         array[c][300] = '\0';
         c++;
@@ -446,26 +496,31 @@ int main(void)
     };
 
     // reusable commands
-    char *result[300];
+    char *result[500];
     char message[20000] = {0};
     char command[256];
+    char buffer[200];
     int index=0;
     int selection=0;
 
     char *drive;
+    char partname[15];
     char *hostname;
+    char *area;
+    char location[MAX_STR]="/usr/share/zoneinfo/";
 
     initscr();
     noecho();
-    raw();
+    //raw();
 
     /*
         Network Check
     */
-    while (system(": >/dev/tcp/8.8.8.8/53")){
+    while ((system(": >/dev/tcp/8.8.8.8/53"))){
         clear();
         msgbox(10,55,"[ Networking ]","You are not connected to the internet~Please connect on the next screen~" 
             "~IF YOU HAVE CONNECTED ALREADY~MOVE TO THE NEXT SCREEN AND WAIT");
+        getch();
         system("nmtui");
     }
 
@@ -475,7 +530,7 @@ int main(void)
     refresh();
     timed_msgbox(6,80,"[ Keymap ]","Select a keymap which is similar to your keyboard on the next screen",0);
     
-    selection = Commands(result,2);
+    selection = Commands(result,2,"");
     array_to_string(result,message,selection);
     index = menu(40,60,"[ Keymap ]",message);
     strcpy(command,"loadkeys ");
@@ -616,51 +671,125 @@ int main(void)
                 configc(message,&cfg);
             }
             else if(index==1){
-                selection = Commands(result,3);
-                array_to_string(result,message,selection);
-                index = menu(12,30,"[ Configurations ]",message);
-                sprintf(message,"Partitioning(Boot:'%s',Swap:'%s',Root:'%s')~Formating(Boot:'%s',Root:'%s')~Mounting(Boot:'%s',Root:'%s')~Applications:'%s'~"
-                    "Custom Commands-~(Partitioning:'%s',Formatting:'%s',Mounting:'%s',Applications:'%s')~Grub:",
-                    cfg.partitions[0],cfg.partitions[1],cfg.partitions[2],cfg.format[0],cfg.format[1],cfg.mounting[0],cfg.mounting[1],cfg.Applications,
-                    cfg.Cust_commands[0],cfg.Cust_commands[1],cfg.Cust_commands[2],cfg.Cust_commands[3]);
-                if(cfg.grub) strcat(message,"True");
-                else strcat(message,"False");
-                menu(12,90,"[ Selected Configuration options ]",message);
+                selection = Open_Dir(result,"Configs/");
+                if(selection){
+                    array_to_string(result,message,selection);
+                    index = menu(12,30,"[ Configurations ]",message);
+                    sprintf(message,"Partitioning(Boot:'%s',Swap:'%s',Root:'%s')~Formating(Boot:'%s',Root:'%s')~Mounting(Boot:'%s',Root:'%s')~Applications:'%s'~"
+                        "Custom Commands-~(Partitioning:'%s',Formatting:'%s',Mounting:'%s',Applications:'%s')~Grub:",
+                        cfg.partitions[0],cfg.partitions[1],cfg.partitions[2],cfg.format[0],cfg.format[1],cfg.mounting[0],cfg.mounting[1],cfg.Applications,
+                        cfg.Cust_commands[0],cfg.Cust_commands[1],cfg.Cust_commands[2],cfg.Cust_commands[3]);
+                    if(cfg.grub) strcat(message,"True");
+                    else strcat(message,"False");
+                    menu(12,90,"[ Selected Configuration options ]",message);
+                }
+                else timed_msgbox(7,30,"[ FILE DOESN'T EXIST]","There are no configs~In your Configs folder",2);
             }
             else if(index==2){
-                // Gather input for github link clone the repo unzip and tell the user it has been added to the list
+                inputbox(AVG_Height,90,"[ GITHUB ]","Enter a link to a github link of a configuration.~For those who want to have a github of their config "
+                    "~you can have shell scripts or other programs which are called in the custom commands",message);
+                
+                inputbox(AVG_Height,90,"[ GITHUB ]","Enter the name of the configuration",buffer);
+                sprintf(command,"Configs/%s",buffer);
+                Makedir(command);
+                sprintf(command," git clone %s Configs/%s",message,buffer);
+                system(command);
+                clear();
+                refresh();
             }
         }
 
         // Running the program
         else if(selection == 5){
+            raw();
             timed_msgbox(6,40,"","TO EMERGENCY STOP THE PROGRAM PRESS CTRL+C",2);
+
             /*
                 Drive Selection
             */
-            index = Commands(result,1);
+            index = Commands(result,1,"");
             array_to_string(result,message,index);
             index = menu(6,29,"[ Drive Selection ]",message);
             drive = result[index];
-            // Hostname and ?? (forgot)
+
+            // Drive check ( some partitions are in the form 'Drive_name'x where the x is a number
+            // and other paritions are in the form 'Drive_name'nx where the x is a number again but the n is the character p
+            if (strstr(drive, "nvme") != NULL || strstr(drive, "mmcblk") != NULL) sprintf(partname, "%sp",drive);
+            else strcpy(partname,drive);
+   
+
+            // Hostname
+
             inputbox(10,50,"[ Hostname ]","Enter the name of your device",hostname);
 
             // Partitioning
+
             msgbox(12,40,"","Partitioning your drive");
-            sleep(2);
+            sleep(1);
             flushinp();
             sprintf(command,"./Partition.sh %s %s %s %s",drive,cfg.partitions[0],cfg.partitions[1],cfg.partitions[2]);
             system(command);
 
             // Formatting
+
             msgbox(12,40,"","Formatting your drive");
-            sleep(2);
+            sleep(1);
             // If a single format is not in either fat32 or ext4 it will send the formats as commands
-            if(cfg.format[0]=="fat32" || cfg.format[0]=="ext4") sprintf(command,"./Format.sh %s %s %s",drive,cfg.format[0],cfg.format[1]);
-            else sprintf(command,"%s | %s | mkswap /dev/%s2",cfg.format[0],cfg.format[0],drive);
+            if(cfg.format[0]=="fat32" || cfg.format[0]=="ext4") sprintf(command,"./Format.sh %s %s %s",partname,cfg.format[0],cfg.format[1]);
+            else sprintf(command,"%s | %s | mkswap /dev/%s2",cfg.format[0],cfg.format[0],partname);
+            system(command);
+
+            // Mounting - Again if 1 of them is different then they should be informed as so
+
+            if(cfg.mounting[1]!="/mnt"){
+                msgbox(12,50,"[ INFORMATION ]","Make sure that after the installation is finished to propperly setup your boot loader");
+                cfg.grub=0;
+                Makedir(cfg.mounting[1]);
+            }
+            msgbox(6,30,"","Mounting Paritions");
+            sleep(1);
+            Makedir(cfg.mounting[0]);
+
+            sprintf(command, "mount /dev/%s3 %s",partname,cfg.mounting[1]);
+            system(command);
+            sprintf(command, "mount /dev/%s1 %s",partname,cfg.mounting[0]);
+            system(command);
+            sprintf(command, "swapon /dev/%s2",partname);
+
+            // System installation
+            msgbox(6,40,"","Installing packages and applications");
+            sleep(1);
+            sprintf(command, "pacstrap -K %s %s",cfg.mounting[1],cfg.Applications);
+            system(command);
+            // Fstab initilisation and changeing root
+            sprintf(command,"genfstab -U %s >> %s/etc/fstab",cfg.mounting[1],cfg.mounting[1]);
+            system(command);
+            sprintf(command, "arch-chroot %s",cfg.mounting[1]);
             system(command);
 
 
+            // localisation and time
+            selection = Open_Dir(result,location);
+            array_to_string(result,message,selection);
+            msgbox(8,60,"[ Locale ]","Select the locale which is closest to your region~and timezone");
+            getch();
+            index=menu(12,40,"",message);
+            strcat(location,result[index]);
+            selection = Open_Dir(result,location);
+            
+            if(selection!=0){
+                array_to_string(result,message,selection);
+                index=menu(12,40,"",message);
+                sprintf(location,"%s/%s",location,result[index]);
+            }
+            selection=Commands(result,3,"");
+            array_to_string(result,message,selection);
+            index=menu(16,20,"[ Localisation ]",message);
+            msgbox(AVG_Height,AVG_Width,"[ Configuring ]","Setting your keymap localisation and grub unless you've selected otherwise");
+            sprintf(command,"./"/*MIGHT BE DIFFRENT LOCATION HERE*/"Config.sh %s %s %s %s %s %s",drive,cfg.keymap,location,hostname,index,cfg.grub);
+            system(command);
+            system("exit");
+            
         }
     }
 
