@@ -103,10 +103,9 @@ int Open_Dir(char **result, const char *location)
     return i;
 }
 
-int Commands(char **result, int km, char *location)
+int Commands(char **result, int km)
 {
     FILE *fptr = NULL;
-    char buff[MAX_STR]="";
     char line[20000];
     int i = 0;
 
@@ -487,7 +486,7 @@ int menu(int h, int w, char *title, char *options)
 int main(void)
 {
     Config cfg = {
-        .partitions = {"500M","4G",""},
+        .partitions = {"500M","4G"},
         .format = {"fat32","ext4"},
         .mounting = {"/mnt/boot/efi","/mnt"},
         .Cust_commands = {"(NULL)","(NULL)","(NULL)","(NULL)"},
@@ -505,14 +504,13 @@ int main(void)
 
     char *drive;
     char partname[15];
-    char *hostname;
+    char hostname[MAX_STR];
     char *area;
     char location[MAX_STR]="/usr/share/zoneinfo/";
 
     initscr();
     noecho();
-    //raw();
-
+    raw();
     /*
         Network Check
     */
@@ -530,7 +528,7 @@ int main(void)
     refresh();
     timed_msgbox(6,80,"[ Keymap ]","Select a keymap which is similar to your keyboard on the next screen",0);
     
-    selection = Commands(result,2,"");
+    selection = Commands(result,2);
     array_to_string(result,message,selection);
     index = menu(40,60,"[ Keymap ]",message);
     strcpy(command,"loadkeys ");
@@ -574,15 +572,15 @@ int main(void)
                     " suggested to select M~The M and G stand for Megabytes and Gigabytes.","[ M ]","[ G ]"))
                 {
                     inputbox(11,50,"[ Partition Size ]","Megabytes",cfg.partitions[1]);
-                    strcat(cfg.partitions[1]," M");
+                    strcat(cfg.partitions[1],"M");
                 } else {
                     inputbox(11,50,"[ Partition Size ]","Gigabytes",cfg.partitions[1]);
-                    strcat(cfg.partitions[1]," G");
+                    strcat(cfg.partitions[1],"G");
                 }
                 // Root partition size
                 inputbox(13,55,"[ Partition Size ]","Please input the size of the root partition~This will be in Gigabytes~Leave empty to use whole drive",cfg.partitions[2]);
                 if(strcmp(cfg.partitions[2],"")){
-                    strcat(cfg.partitions[2]," G");
+                    strcat(cfg.partitions[2],"G");
                 }
             }
             else if(index == 2){
@@ -702,26 +700,32 @@ int main(void)
         // Running the program
         else if(selection == 5){
             raw();
-            timed_msgbox(6,40,"","TO EMERGENCY STOP THE PROGRAM PRESS CTRL+C",2);
+            timed_msgbox(6,50,"","TO EMERGENCY STOP THE PROGRAM PRESS CTRL+C",2);
 
             /*
                 Drive Selection
             */
-            index = Commands(result,1,"");
+            index = Commands(result,1);
             array_to_string(result,message,index);
             index = menu(6,29,"[ Drive Selection ]",message);
             drive = result[index];
+
+            char *space = strchr(drive, ' ');
+            if (space) {
+                *space = '\0';
+            }
+
+
+
 
             // Drive check ( some partitions are in the form 'Drive_name'x where the x is a number
             // and other paritions are in the form 'Drive_name'nx where the x is a number again but the n is the character p
             if (strstr(drive, "nvme") != NULL || strstr(drive, "mmcblk") != NULL) sprintf(partname, "%sp",drive);
             else strcpy(partname,drive);
    
-
             // Hostname
-
             inputbox(10,50,"[ Hostname ]","Enter the name of your device",hostname);
-
+            getch();
             // Partitioning
 
             msgbox(12,40,"","Partitioning your drive");
@@ -729,29 +733,32 @@ int main(void)
             flushinp();
             sprintf(command,"./Partition.sh %s %s %s %s",drive,cfg.partitions[0],cfg.partitions[1],cfg.partitions[2]);
             system(command);
+            clear();
+            refresh();
 
             // Formatting
 
             msgbox(12,40,"","Formatting your drive");
             sleep(1);
-            // If a single format is not in either fat32 or ext4 it will send the formats as commands
-            if(cfg.format[0]=="fat32" || cfg.format[0]=="ext4") sprintf(command,"./Format.sh %s %s %s",partname,cfg.format[0],cfg.format[1]);
-            else sprintf(command,"%s | %s | mkswap /dev/%s2",cfg.format[0],cfg.format[0],partname);
+
+            if(strcmp(cfg.format[0], "fat32") == 0 || strcmp(cfg.format[0], "ext4") == 0  ) sprintf(command,"./Format.sh %s %s %s",partname,cfg.format[0],cfg.format[1]);
+            else sprintf(command,"%s && %s && mkswap /dev/%s2",cfg.format[0],cfg.format[1],partname);
             system(command);
+            clear();
+            refresh();
 
             // Mounting - Again if 1 of them is different then they should be informed as so
-
-            if(cfg.mounting[1]!="/mnt"){
-                msgbox(12,50,"[ INFORMATION ]","Make sure that after the installation is finished to propperly setup your boot loader");
+            
+            if(strcmp(cfg.mounting[1],"/mnt")){
+                msgbox(AVG_Height,90,"[ INFORMATION ]","Make sure that after the installation is finished to propperly setup your boot loader");
                 cfg.grub=0;
                 Makedir(cfg.mounting[1]);
             }
             msgbox(6,30,"","Mounting Paritions");
             sleep(1);
-            Makedir(cfg.mounting[0]);
-
             sprintf(command, "mount /dev/%s3 %s",partname,cfg.mounting[1]);
             system(command);
+            Makedir(cfg.mounting[0]);
             sprintf(command, "mount /dev/%s1 %s",partname,cfg.mounting[0]);
             system(command);
             sprintf(command, "swapon /dev/%s2",partname);
@@ -761,13 +768,34 @@ int main(void)
             sleep(1);
             sprintf(command, "pacstrap -K %s %s",cfg.mounting[1],cfg.Applications);
             system(command);
-            // Fstab initilisation and changeing root
+            clear();
+            refresh();
+            // Fstab initilisation and changing root
             sprintf(command,"genfstab -U %s >> %s/etc/fstab",cfg.mounting[1],cfg.mounting[1]);
             system(command);
-            sprintf(command, "arch-chroot %s",cfg.mounting[1]);
+            clear();
+            refresh();
+            // root Password
+            inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the password for the root user",message);
+            refresh();
+            sprintf(command,"arch-chroot %s sh -c \"echo 'root:%s' | chpasswd\"",cfg.mounting[1], message);
             system(command);
-
-
+            clear();
+            refresh();
+            // User creation
+            inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the name for your user",message);
+            selection=yesno(AVG_Height,AVG_Width,"[ User creation ]","Is this user a super user(administrator)~"
+                "You will need to be Admin to update and install programs","[ ADMIN ]","[ NOT-ADMIN ]");
+            if(selection) sprintf(command,"arch-chroot %s useradd -m -G wheel -s /bin/bash %s",cfg.mounting[1],message);
+            else sprintf(command,"arch-chroot %s useradd -m -s /bin/bash %s",cfg.mounting[1],message);
+            system(command);
+            system("echo \"%wheel ALL=(ALL:ALL) ALL\" >> /etc/sudoers");
+            // Setting the password
+            inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the password for your user",command);
+            sprintf(command,"arch-chroot %s sh -c \"echo '%s:%s' | chpasswd\"",cfg.mounting[1],message,command);
+            system(command);
+            clear();
+            refresh();
             // localisation and time
             selection = Open_Dir(result,location);
             array_to_string(result,message,selection);
@@ -782,14 +810,14 @@ int main(void)
                 index=menu(12,40,"",message);
                 sprintf(location,"%s/%s",location,result[index]);
             }
-            selection=Commands(result,3,"");
+            selection=Commands(result,3);
             array_to_string(result,message,selection);
-            index=menu(16,20,"[ Localisation ]",message);
-            msgbox(AVG_Height,AVG_Width,"[ Configuring ]","Setting your keymap localisation and grub unless you've selected otherwise");
-            sprintf(command,"./"/*MIGHT BE DIFFRENT LOCATION HERE*/"Config.sh %s %s %s %s %s %s",drive,cfg.keymap,location,hostname,index,cfg.grub);
-            system(command);
-            system("exit");
-            
+            index=menu(16,30,"[ Localisation ]",message);
+            msgbox(AVG_Height,78,"[ Configuring ]","Setting your keymap localisation and grub unless you've selected otherwise");
+            sprintf(message,"arch-chroot %s /Config.sh %s %s %s %s %d %d",cfg.mounting[1],drive,cfg.keymap,location,hostname,index,cfg.grub);        
+            system("cp Config.sh /mnt/Config.sh");
+            system(message);
+                
         }
     }
 
