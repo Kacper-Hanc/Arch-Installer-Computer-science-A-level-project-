@@ -29,6 +29,18 @@ typedef struct
 /*
     LOGIC FUNCTIONS
 */
+
+void remove_substring(char *str, const char *remove) {
+    char *pos = strstr(str, remove);
+
+    if (pos != NULL) {
+        memmove(
+            pos,
+            pos + strlen(remove),
+            strlen(pos + strlen(remove)) + 1
+        );
+    }
+}
 int CreateArray(char **array,char *message,int w)
 {
     int c =0;
@@ -166,14 +178,13 @@ void configc(char *location, Config *cfg)
     fprintf(fptr, "custom commands{\n - \"%s\"\n - \"%s\"\n - \"%s\"\n - \"%s\"\n}\n",
         cfg->Cust_commands[0],cfg->Cust_commands[1],cfg->Cust_commands[2],cfg->Cust_commands[3]);
     fprintf(fptr, "applications:\"%s\"\n", cfg->Applications);
-    fprintf(fptr, "grub:\"%s\"", cfg->grub ? "true" : "false");
+    fprintf(fptr, "grub:\"%s\"", cfg->grub ? "True" : "False");
     fclose(fptr);
 }
 void configr(char *location, Config *cfg)
 {   
     char filename[MAX_STR];
-    strcpy(filename,location);
-    strcat(filename,"config.conf");
+    sprintf(filename,"%sconfig.conf",location);
     FILE *fp = fopen(filename, "r");
     if (!fp) {
         perror("fopen");
@@ -232,7 +243,10 @@ void configr(char *location, Config *cfg)
             if (sscanf(line, " - \"%199[^\"]\"", cfg->mounting[mlen]) == 1)mlen++;
         }
         if (current_array == 4 && clen < 4) {
-            if (sscanf(line, " - \"%199[^\"]\"", cfg->Cust_commands[clen]) == 1)clen++;
+            if (sscanf(line, " - \"%199[^\"]\"", cfg->Cust_commands[clen]) == 1){
+                if (strcmp(cfg->Cust_commands[clen],"(NULL)")==0) strcpy(cfg->Cust_commands[clen],"");
+                clen++;
+            }
         }
 
     }
@@ -489,7 +503,7 @@ int main(void)
         .partitions = {"500M","4G"},
         .format = {"fat32","ext4"},
         .mounting = {"/mnt/boot/efi","/mnt"},
-        .Cust_commands = {"(NULL)","(NULL)","(NULL)","(NULL)"},
+        .Cust_commands = {"","","",""},
         .Applications = "base linux linux-firmware sof-firmware base-devel grub efibootmgr",
         .grub = 1
     };
@@ -546,7 +560,7 @@ int main(void)
     */
     while(selection != 6){
         selection = menu(15,60,"[ Arch Installation ]","Partitioning - How to split the drive for the OS~Formatting(For Advanced Users)~Mounting(For Advanced Users)"
-            "~Additional Applications to install~Configurations~Run Program~[ EXIT ]");
+            "~Additional Applications to install~Configurations~Run Program~[ EXIT to terminal ]");
         // Partitioning
         if(selection == 0){
             index = menu(8,95,"[ Partitioning Scheme ]","Simple - Will remove all the data on the drive and install Arch with a basic partition~Advanced - You will need to"
@@ -649,13 +663,16 @@ int main(void)
         // Additional applications
         else if (selection==3){
             cfg.grub=yesno(8,80,"[ Bootloader ]","Do you want to use grub as your bootloader~If you select no then you need to install your own bootloader and modify it~"
-                "If you are unsure then go with yes","[ Yes ]","[ No ]");
+                "If you are unsure then go with yes~it is suggested to go no if you want dual booting","[ Yes ]","[ No ]");
+            
             inputbox(9,130,"[ Applications ]","Enter the applications you want to install. Each application should have a space between themselves.~For example to install"
                 " firefox and network manager you would input 'firefox networkmanager'~It is suggested to have a network interface like the networkmanager application",
                 message);
+            sprintf(cfg.Applications,"%s %s",cfg.Applications,message);
             if(yesno(6,50,"[ Custom Command ]","Do you want to add a Custom command.~To the end of this section","[ Yes ]","[ No ]")){
-                inputbox(10,75,"[ Custom Command ]","Please enter the linux command that is to~be run after the applications have been installed (finilisation)",
-                    cfg.Cust_commands[2]);
+                inputbox(10,75,"[ Custom Command ]","Please enter the linux command that is to~be run after the sytem has been installed~"
+                    "(end of the installation in /mnt as root)",
+                    cfg.Cust_commands[3]);
             }
         }
         // Configurations
@@ -673,13 +690,15 @@ int main(void)
                 if(selection){
                     array_to_string(result,message,selection);
                     index = menu(12,30,"[ Configurations ]",message);
+                    sprintf(message,"Configs/%s/",result[index]);
+                    configr(message,&cfg);
                     sprintf(message,"Partitioning(Boot:'%s',Swap:'%s',Root:'%s')~Formating(Boot:'%s',Root:'%s')~Mounting(Boot:'%s',Root:'%s')~Applications:'%s'~"
                         "Custom Commands-~(Partitioning:'%s',Formatting:'%s',Mounting:'%s',Applications:'%s')~Grub:",
                         cfg.partitions[0],cfg.partitions[1],cfg.partitions[2],cfg.format[0],cfg.format[1],cfg.mounting[0],cfg.mounting[1],cfg.Applications,
                         cfg.Cust_commands[0],cfg.Cust_commands[1],cfg.Cust_commands[2],cfg.Cust_commands[3]);
                     if(cfg.grub) strcat(message,"True");
                     else strcat(message,"False");
-                    menu(12,90,"[ Selected Configuration options ]",message);
+                    menu(12,130,"[ Selected Configuration options ]",message);
                 }
                 else timed_msgbox(7,30,"[ FILE DOESN'T EXIST]","There are no configs~In your Configs folder",2);
             }
@@ -696,12 +715,11 @@ int main(void)
                 refresh();
             }
         }
-
         // Running the program
         else if(selection == 5){
             raw();
             timed_msgbox(6,50,"","TO EMERGENCY STOP THE PROGRAM PRESS CTRL+C",2);
-
+            if (!cfg.grub && strstr(cfg.Applications, "grub efibootmgr") != NULL) remove_substring(cfg.Applications,"grub efibootmgr");
             /*
                 Drive Selection
             */
@@ -715,24 +733,20 @@ int main(void)
                 *space = '\0';
             }
 
-
-
-
             // Drive check ( some partitions are in the form 'Drive_name'x where the x is a number
             // and other paritions are in the form 'Drive_name'nx where the x is a number again but the n is the character p
             if (strstr(drive, "nvme") != NULL || strstr(drive, "mmcblk") != NULL) sprintf(partname, "%sp",drive);
             else strcpy(partname,drive);
-   
+            flushinp();
             // Hostname
             inputbox(10,50,"[ Hostname ]","Enter the name of your device",hostname);
-            getch();
             // Partitioning
-
             msgbox(12,40,"","Partitioning your drive");
             sleep(1);
             flushinp();
             sprintf(command,"./Partition.sh %s %s %s %s",drive,cfg.partitions[0],cfg.partitions[1],cfg.partitions[2]);
             system(command);
+            if(strcmp(cfg.Cust_commands[0], "")) system(cfg.Cust_commands[0]);
             clear();
             refresh();
 
@@ -744,6 +758,7 @@ int main(void)
             if(strcmp(cfg.format[0], "fat32") == 0 || strcmp(cfg.format[0], "ext4") == 0  ) sprintf(command,"./Format.sh %s %s %s",partname,cfg.format[0],cfg.format[1]);
             else sprintf(command,"%s && %s && mkswap /dev/%s2",cfg.format[0],cfg.format[1],partname);
             system(command);
+            if(strcmp(cfg.Cust_commands[1], "")) system(cfg.Cust_commands[1]);
             clear();
             refresh();
 
@@ -762,6 +777,8 @@ int main(void)
             sprintf(command, "mount /dev/%s1 %s",partname,cfg.mounting[0]);
             system(command);
             sprintf(command, "swapon /dev/%s2",partname);
+            system(command);
+            if(strcmp(cfg.Cust_commands[2], "")) system(cfg.Cust_commands[2]);
 
             // System installation
             msgbox(6,40,"","Installing packages and applications");
@@ -784,15 +801,20 @@ int main(void)
             refresh();
             // User creation
             inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the name for your user",message);
+
             selection=yesno(AVG_Height,AVG_Width,"[ User creation ]","Is this user a super user(administrator)~"
                 "You will need to be Admin to update and install programs","[ ADMIN ]","[ NOT-ADMIN ]");
-            if(selection) sprintf(command,"arch-chroot %s useradd -m -G wheel -s /bin/bash %s",cfg.mounting[1],message);
+            if(selection){
+                sprintf(command,"arch-chroot %s useradd -m -G wheel -s /bin/bash %s",cfg.mounting[1],message);
+                system("echo \"%wheel ALL=(ALL:ALL) ALL\" | tee \"/etc/sudoers.d/wheel\" > /dev/null");
+                system("chmod 0440 \"/etc/sudoers.d/wheel\"");
+            }
             else sprintf(command,"arch-chroot %s useradd -m -s /bin/bash %s",cfg.mounting[1],message);
             system(command);
-            system("echo \"%wheel ALL=(ALL:ALL) ALL\" >> /etc/sudoers");
             // Setting the password
-            inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the password for your user",command);
-            sprintf(command,"arch-chroot %s sh -c \"echo '%s:%s' | chpasswd\"",cfg.mounting[1],message,command);
+            char buffer[200];
+            inputbox(AVG_Height,AVG_Width,"[ User creation ]","Enter the password for your user",buffer);
+            sprintf(command,"arch-chroot %s sh -c \"echo '%s:%s' | chpasswd\"",cfg.mounting[1],message,buffer);
             system(command);
             clear();
             refresh();
@@ -804,7 +826,6 @@ int main(void)
             index=menu(12,40,"",message);
             strcat(location,result[index]);
             selection = Open_Dir(result,location);
-            
             if(selection!=0){
                 array_to_string(result,message,selection);
                 index=menu(12,40,"",message);
@@ -817,6 +838,11 @@ int main(void)
             sprintf(message,"arch-chroot %s /Config.sh %s %s %s %s %d %d",cfg.mounting[1],drive,cfg.keymap,location,hostname,index,cfg.grub);        
             system("cp Config.sh /mnt/Config.sh");
             system(message);
+            sprintf(command,"arch-chroot %s %s",cfg.mounting[1],cfg.Cust_commands[3]);
+            if(strcmp(cfg.Cust_commands[3], "")) system(command);
+            clear();
+            refresh();
+            timed_msgbox(AVG_Height,AVG_Width,"[ FINISHED ]","THE PROGRAM HAS FINISHED EXECUTING~IF YOU DISABLED GRUB SETUP YOUR BOOTLOADER~THEN UNMOUNT ALL AND REBOOT",3);
                 
         }
     }
