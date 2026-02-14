@@ -171,7 +171,6 @@ void configc(char *location, Config *cfg)
 
     if (fptr == NULL) return;
 
-    fprintf(fptr, "keymap:\"%s\"\n", cfg->keymap);
     fprintf(fptr, "partition{\n - \"%s\"\n - \"%s\"\n - \"%s\"\n}\n", cfg->partitions[0], cfg->partitions[1], cfg->partitions[2]);
     fprintf(fptr, "format{\n - \"%s\"\n - \"%s\"\n}\n", cfg->format[0], cfg->format[1]);
     fprintf(fptr, "mount{\n - \"%s\"\n - \"%s\"\n}\n", cfg->mounting[0], cfg->mounting[1]);
@@ -355,7 +354,7 @@ bool yesno(int h,int w,char *title,char *message,char *yes,char *no)
 
     keypad(win,true);
 
-    mvwprintw(win,h-2,w-(8+(2*strlen(no))),no);
+    mvwprintw(win,h-2,w-(5+(2*strlen(no))),no);
     wattron(win,A_REVERSE);
     mvwprintw(win,h-2,5+strlen(yes),yes);
     wattroff(win,A_REVERSE);
@@ -367,12 +366,12 @@ bool yesno(int h,int w,char *title,char *message,char *yes,char *no)
         if (d == KEY_RIGHT){
             mvwprintw(win,h-2,5+strlen(yes),yes); 
             wattron(win,A_REVERSE);
-            mvwprintw(win,h-2,w-(8+(2*strlen(no))),no);
+            mvwprintw(win,h-2,w-(5+(2*strlen(no))),no);
             wattroff(win,A_REVERSE);
             yn=false;
         }
         else if (d == KEY_LEFT){
-            mvwprintw(win,h-2,w-(8+(2*strlen(no))),no);
+            mvwprintw(win,h-2,w-(5+(2*strlen(no))),no);
             wattron(win,A_REVERSE);
             mvwprintw(win,h-2,5+strlen(yes),yes); 
             wattroff(win,A_REVERSE);
@@ -524,7 +523,6 @@ int main(void)
 
     initscr();
     noecho();
-    raw();
     /*
         Network Check
     */
@@ -575,7 +573,7 @@ int main(void)
                     " suggested to select M~The M and G stand for Megabytes and Gigabytes.","[ M ]","[ G ]"))
                 {
                     inputbox(11,50,"[ Partition Size ]","You have selected Megabytes~Please input the size of the [boot] partition",cfg.partitions[0]);
-                    strcat(cfg.partitions[0]," M");
+                    strcat(cfg.partitions[0],"M");
                 } else {
                     inputbox(11,50,"[ Partition Size ]","You have selected Gigabytes~Please input the size of the [boot] partition",cfg.partitions[0]);
                     strcat(cfg.partitions[0]," G");
@@ -596,6 +594,8 @@ int main(void)
                 if(strcmp(cfg.partitions[2],"")){
                     strcat(cfg.partitions[2],"G");
                 }
+                printw("%s | %s | %s",cfg.partitions[0],cfg.partitions[1],cfg.partitions[2]);
+                getch();
             }
             else if(index == 2){
                 inputbox(10,55,"[ Custom Command ]","Please enter the linux command that is to be run after the partitioning section",cfg.Cust_commands[0]);
@@ -668,7 +668,7 @@ int main(void)
             inputbox(9,130,"[ Applications ]","Enter the applications you want to install. Each application should have a space between themselves.~For example to install"
                 " firefox and network manager you would input 'firefox networkmanager'~It is suggested to have a network interface like the networkmanager application",
                 message);
-            sprintf(cfg.Applications,"%s %s",cfg.Applications,message);
+            sprintf(cfg.Applications,"base linux linux-firmware sof-firmware base-devel grub efibootmgr %s",message);
             if(yesno(6,50,"[ Custom Command ]","Do you want to add a Custom command.~To the end of this section","[ Yes ]","[ No ]")){
                 inputbox(10,75,"[ Custom Command ]","Please enter the linux command that is to~be run after the sytem has been installed~"
                     "(end of the installation in /mnt as root)",
@@ -717,7 +717,7 @@ int main(void)
         }
         // Running the program
         else if(selection == 5){
-            raw();
+            cbreak();
             timed_msgbox(6,50,"","TO EMERGENCY STOP THE PROGRAM PRESS CTRL+C",2);
             if (!cfg.grub && strstr(cfg.Applications, "grub efibootmgr") != NULL) remove_substring(cfg.Applications,"grub efibootmgr");
             /*
@@ -842,7 +842,12 @@ int main(void)
             if(strcmp(cfg.Cust_commands[3], "")) system(command);
             clear();
             refresh();
-            timed_msgbox(AVG_Height,AVG_Width,"[ FINISHED ]","THE PROGRAM HAS FINISHED EXECUTING~IF YOU DISABLED GRUB SETUP YOUR BOOTLOADER~THEN UNMOUNT ALL AND REBOOT",3);
+            selection=yesno(AVG_Height,AVG_Width,"[ FINISHED ]","Do you want to unmount and reboot into your system?","[ Reboot ]","[ Don't Reboot ]");
+            if(selection){
+                system("umount -a");
+                system("reboot");
+            }
+            else timed_msgbox(AVG_Height,AVG_Width,"[ FINISHED ]","THE PROGRAM HAS FINISHED EXECUTING~IF YOU DISABLED GRUB THEN SETUP YOUR BOOTLOADER~THEN UNMOUNT ALL AND REBOOT",3);
                 
         }
     }
