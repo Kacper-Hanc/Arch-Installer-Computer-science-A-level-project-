@@ -14,7 +14,8 @@ fi
 
 if [ $Advanced == "True" ] 
 then # ADVANCED AND MORE ADVANCED FORMAT+MOUNT
-    if ( whiptail --title "More Advanced options" --yesno "The extra options will ask for the specific format type per drive and the mounting point\n       (DON'T CHOOSE UNLESS YOU KNOW WHAT YOU ARE DOING)" --no-button "Simpler" --yes-button "Extra options" 20 70 ); 
+    if ( whiptail --title "More Advanced options" --yesno "The extra options will ask for the specific format type per drive and the mounting point\n \
+        (DON'T CHOOSE UNLESS YOU KNOW WHAT YOU ARE DOING)" --no-button "Simpler" --yes-button "Extra options" 20 70 ); 
     then #MORE ADVANCED FORMAT+MOUNT
         Advanced_extra=True
 
@@ -41,7 +42,8 @@ then # ADVANCED AND MORE ADVANCED FORMAT+MOUNT
         selection=$(whiptail --title "MOUNTING" --cancel-button "Done" --menu "please make sure to Mount the partitions" 20 20 4 $paritions 3>&1 1>&2 2>&3)
         while [[ $selection == "$drive"* ]];
         do
-            mount=$(whiptail --title "Mounting position" --inputbox "Enter your desired mounting position \n(MAKE SURE YOU START WITH / IT WILL USE mkdir COMMAND)\nif the partition is to be swap then just enter 'swap' in the text box bello" 30 50 3>&1 1>&2 2>&3)
+            mount=$(whiptail --title "Mounting position" --inputbox "Enter your desired mounting position \n"\
+            "(MAKE SURE YOU START WITH / IT WILL USE mkdir COMMAND)\nif the partition is to be swap then just enter 'swap' in the text box bello" 30 50 3>&1 1>&2 2>&3)
             if [ $mount == "swap" ]; then
                 swapon /dev/$selection
             else
@@ -83,7 +85,8 @@ then # ADVANCED AND MORE ADVANCED FORMAT+MOUNT
         while [[ $selection == "$drive"* ]];
         do
             mount=$(whiptail --title "Mounting position" --menu "What type of partition is this, make sure it matches your format selection" \
-                20 70 3 "Root" "This should be your main drive the Ext4 formatted partition" "Boot" "This allows the system to launch | Fat32 formatted drive" "Swap" "Virtual memory to stop your computer from crashing when running out of ram" 3>&1 1>&2 2>&3)
+                20 70 3 "Root" "This should be your main drive the Ext4 formatted partition" "Boot" "This allows the system to launch | Fat32 formatted drive" \
+                    "Swap" "Virtual memory to stop your computer from crashing when running out of ram" 3>&1 1>&2 2>&3)
             case "$mount" in
                 "Root") 
                 mount /dev/$selection /mnt
