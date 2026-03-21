@@ -20,6 +20,7 @@ echo LANG=$(awk '!/^#/ && NF {print $1}' /etc/locale.gen) >> /etc/locale.conf
 
 echo KEYMAP=$2 >> /etc/vconsole.conf
 echo $(whiptail --title "HOSTNAME" --inputbox "Enter the name of your machine:" 20 30 3>&1 1>&2 2>&3) >> /etc/hostname
-
-grub-install /dev/$1
-grub-mkconfig -o /boot/grub/grub.cfg
+if [ "$3" == true ]; then
+    grub-install /dev/$1
+    grub-mkconfig -o /boot/grub/grub.cfg
+fi
